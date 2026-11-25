@@ -1,0 +1,54 @@
+# Builds and publishes a release when a version tag is pushed: git tag v1.2.3 && git push fork v1.2.3
+# FireFrame's in-app "Update" installs the APK from the latest release. Updates only install over the top
+# when they're signed with the same key, so the build signs with the key kept in the repo's secrets:
+#   KEYSTORE_B64   the key.jks file, base64-encoded
+#   KEYSTORE_PASS  its password (optional: build.sh's default, "fireframe", if not set)
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK (platform 34, build-tools 34)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+
+      - name: Tag matches the app's version
+        run: |
+          app=$(sed -n 's/.*android:versionName="\([^"]*\)".*/\1/p' app/AndroidManifest.xml)
+          [ "v$app" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME, but the app says $app"; exit 1; }
+
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          # Without the real key, build.sh would make a new one, and the release couldn't update installed copies.
+          [ -n "$KEYSTORE_B64" ] || { echo "KEYSTORE_B64 secret is missing"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/key.jks"
+
+      - name: Build
+        env:
+          KEYSTORE: ${{ runner.temp }}/key.jks
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS || 'fireframe' }}
+        run: ./build.sh && rm -f "$KEYSTORE"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="fireframe-${GITHUB_REF_NAME#v}.apk"
+          cp out/fireframe.apk "$apk"
+          gh release create "$GITHUB_REF_NAME" "$apk" --title "FireFrame ${GITHUB_REF_NAME#v}" --generate-notes
