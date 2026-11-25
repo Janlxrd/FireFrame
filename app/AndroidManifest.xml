@@ -44,10 +44,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <receiver android:name=".MainActivity$Boot" android:exported="true">
+        <!-- directBootAware: LOCKED_BOOT_COMPLETED comes ~2 s before BOOT_COMPLETED on Fire OS 6, before
+             Amazon's launcher opens. BOOT_COMPLETED can come much later (13 s after it, seen on a 4K stick). -->
+        <receiver android:name=".MainActivity$Boot" android:exported="true" android:directBootAware="true">
             <!-- Boot broadcasts reach apps one at a time, highest priority first. Fire TV has dozens of
                  its own; going first gets FireFrame up about a second sooner, before Amazon's launcher. -->
             <intent-filter android:priority="999">
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <!-- and right after an update, so it doesn't land on Amazon's home screen -->
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />

@@ -57,6 +57,9 @@ public class MainActivity extends Activity {
     public static class Boot extends BroadcastReceiver {
         @Override
         public void onReceive(Context c, Intent i) {
+            // Before the user's storage is unlocked FireFrame can't read its settings: BOOT_COMPLETED follows.
+            if (android.os.Build.VERSION.SDK_INT >= 24
+                    && !((android.os.UserManager) c.getSystemService(Context.USER_SERVICE)).isUserUnlocked()) return;
             if (HomeWatcher.boot(c)) return;
             c.startActivity(new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }

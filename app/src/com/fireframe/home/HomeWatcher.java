@@ -85,7 +85,8 @@ public class HomeWatcher extends Service {
 
     void guardBoot() {
         bootGuardUntil = SystemClock.elapsedRealtime() + BOOT_GUARD_MS;
-        cover();
+        // Boot arrives twice (LOCKED_BOOT_COMPLETED, then BOOT_COMPLETED): cover only if not already up.
+        if (!MainActivity.inFront) cover();
         main.removeCallbacks(bootCheck);
         main.postDelayed(bootCheck, BOOT_CHECK_MS);
     }
