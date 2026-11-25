@@ -262,6 +262,21 @@ public class HomeScreen extends FrameLayout {
     void applyExtras(Intent intent) {
         String w = intent == null ? null : intent.getStringExtra("wallpaper");
         String from = intent == null ? null : intent.getStringExtra("from");
+        // "./fireframe.sh dock <tv-ip> pkg1,pkg2,..." sets the dock in one go, in that order.
+        String d = intent == null ? null : intent.getStringExtra("dock");
+        if (d != null) {
+            Map<String, String> apps = installed();
+            List<String> next = new ArrayList<>();
+            for (String p : d.split(",")) {
+                p = p.trim();
+                if (apps.containsKey(p) && !next.contains(p)) next.add(p);
+            }
+            if (!next.isEmpty()) {
+                dock.clear();
+                dock.addAll(next);
+                saveDock();
+            }
+        }
         if (from != null && customWallpaper() != null) {
             try (InputStream in = new FileInputStream(from); OutputStream out = new FileOutputStream(customWallpaper())) {
                 byte[] buf = new byte[65536];

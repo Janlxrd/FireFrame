@@ -5,6 +5,7 @@
 #   ./fireframe.sh debloat   <tv-ip> [--dry-run] turn off Amazon ads, tracking and junk ("safe" in debloat.txt)
 #   ./fireframe.sh debloat   <tv-ip> --also alexa,primevideo   also these groups from debloat.txt (or --all)
 #   ./fireframe.sh wallpaper <tv-ip> photo.jpg   use your own photo
+#   ./fireframe.sh dock      <tv-ip> pkg1,pkg2   set the dock's apps, in that order (package names)
 #   ./fireframe.sh undo      <tv-ip> [--uninstall] turn everything back on (and remove FireFrame)
 #   ./fireframe.sh memory    <tv-ip>             free memory right now
 #
@@ -121,6 +122,12 @@ debloat)
   fi
   ;;
 
+dock)
+  [ -n "$3" ] || { echo "usage: ./fireframe.sh dock <tv-ip> pkg1,pkg2,..." >&2; exit 1; }
+  connect
+  tv am start -W -n $PKG/.MainActivity --es dock "$3" >/dev/null 2>&1
+  echo "Dock set. Apps that aren't installed were skipped."
+  ;;
 wallpaper)
   [ -f "$3" ] || { echo "usage: ./fireframe.sh wallpaper <tv-ip> photo.jpg" >&2; exit 1; }
   connect
