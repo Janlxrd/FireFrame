@@ -62,6 +62,43 @@ public class HomeWatcher extends Service {
         } catch (RuntimeException ignored) {}
     }
 
+    // Right after boot, Amazon's launcher opens on its own schedule: sometimes before FireFrame's
+    // window, sometimes after it. So for a while after boot this keeps FireFrame in front, unless an
+    // app other than Amazon's home screen has been opened. False where HomeWatcher doesn't run.
+    static final long BOOT_GUARD_MS = 25000, BOOT_CHECK_MS = 500;
+    long bootGuardUntil;
+    final Runnable bootCheck = this::bootCheck;
+
+    static boolean boot(Context c) {
+        if (!wanted(c)) return false;
+        if (running != null) {
+            running.guardBoot();
+            return true;
+        }
+        try {
+            c.startService(new Intent(c, HomeWatcher.class).putExtra("boot", true));
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    void guardBoot() {
+        bootGuardUntil = SystemClock.elapsedRealtime() + BOOT_GUARD_MS;
+        cover();
+        main.removeCallbacks(bootCheck);
+        main.postDelayed(bootCheck, BOOT_CHECK_MS);
+    }
+
+    void bootCheck() {
+        if (stopped || SystemClock.elapsedRealtime() > bootGuardUntil) return;
+        String f = front;
+        // Only Amazon's home screen, or the blank one Fire OS shows before it, is taken back.
+        boolean amazonsTurn = f == null || isAmazonHome(f) || f.endsWith("FallbackHome");
+        if (!MainActivity.inFront && amazonsTurn) cover();
+        main.postDelayed(bootCheck, BOOT_CHECK_MS);
+    }
+
     final BroadcastReceiver homePressed = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(i.getAction())
@@ -108,12 +145,14 @@ public class HomeWatcher extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && intent.getBooleanExtra("boot", false)) guardBoot();
         return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
         stopped = true;
+        main.removeCallbacks(bootCheck);
         synchronized (logcats) {
             for (Process p : logcats) p.destroy();
         }
